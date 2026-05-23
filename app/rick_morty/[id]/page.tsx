@@ -13,7 +13,7 @@ interface CharacterDetailPageProps {
   }>;
 }
 
-export const revalidate = TEN_DAYS;
+export const revalidate = 864000;
 
 export async function generateStaticParams() {
   return getAllCharacterIds();
