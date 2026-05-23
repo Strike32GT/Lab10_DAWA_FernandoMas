@@ -54,7 +54,7 @@ export default async function CharacterDetailPage({
   return (
     <main className="min-h-screen bg-[#030d18] text-white">
       <div className="fixed inset-0 bg-[radial-gradient(ellipse_80%_60%_at_15%_20%,rgba(0,60,40,0.45)_0%,transparent_60%),radial-gradient(ellipse_60%_50%_at_85%_75%,rgba(10,30,80,0.5)_0%,transparent_55%),#030d18]" />
-      <div className="relative z-10 mx-auto max-w-5xl px-6 py-10">
+      <div className="relative z-10 mx-auto max-w-5xl px-6 py-8">
         <Link
           href="/rick_morty"
           className="inline-flex rounded-lg border border-white/10 bg-white/[0.055] px-4 py-2 text-sm font-semibold text-white/65 transition hover:border-emerald-300/40 hover:text-emerald-300"
@@ -62,9 +62,9 @@ export default async function CharacterDetailPage({
           Volver al registro
         </Link>
 
-        <section className="mt-8 overflow-hidden rounded-3xl border border-emerald-300/20 bg-white/[0.055] shadow-2xl shadow-black/40 backdrop-blur">
-          <div className="grid gap-0 lg:grid-cols-[360px_1fr]">
-            <div className="relative min-h-[360px]">
+        <section className="mt-6 overflow-hidden rounded-3xl border border-emerald-300/20 bg-white/[0.055] shadow-2xl shadow-black/40 backdrop-blur">
+          <div className="grid gap-0 lg:grid-cols-[320px_1fr]">
+            <div className="relative min-h-[320px]">
               <Image
                 src={character.image}
                 alt={character.name}
@@ -79,7 +79,7 @@ export default async function CharacterDetailPage({
               </div>
             </div>
 
-            <div className="p-6 md:p-8">
+            <div className="p-5 md:p-7">
               <p className="text-[10px] uppercase tracking-[0.35em] text-emerald-300/75">
                 Character Profile
               </p>
@@ -102,7 +102,7 @@ export default async function CharacterDetailPage({
                 </span>
               </div>
 
-              <div className="mt-8 grid gap-3 sm:grid-cols-2">
+              <div className="mt-6 grid gap-3 sm:grid-cols-2">
                 <Info label="Id" value={`#${character.id}`} highlight />
                 <Info label="Tipo" value={character.type || "N/A"} />
                 <Info label="Estado" value={character.status} />
@@ -110,18 +110,10 @@ export default async function CharacterDetailPage({
                 <Info label="Genero" value={character.gender} />
                 <Info label="Creado" value={new Date(character.created).toLocaleDateString("es-PE")} />
                 <Info label="Origen" value={character.origin.name} wide />
-                <Info label="Url origen" value={character.origin.url || "N/A"} wide />
                 <Info label="Locacion actual" value={character.location.name} wide />
-                <Info label="Url locacion" value={character.location.url || "N/A"} wide />
-                <Info label="Endpoint del personaje" value={character.url} wide />
-                <Info
-                  label="Imagen"
-                  value={character.image}
-                  wide
-                />
               </div>
 
-              <div className="mt-8">
+              <div className="mt-6">
                 <h2 className="text-xs font-bold uppercase tracking-[0.25em] text-white/35">
                   Apariciones ({character.episode.length})
                 </h2>
