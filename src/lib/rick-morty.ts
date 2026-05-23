@@ -3,11 +3,18 @@ import {
   RickMortyCharacterFilters,
   RickMortyCharacterResponse,
 } from "@/types/rick-morty";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
+import path from "node:path";
 
 const API_URL = "https://rickandmortyapi.com/api/character";
 export const TEN_DAYS = 60 * 60 * 24 * 10;
 const CHARACTER_COUNT = 826;
 const BATCH_SIZE = 100;
+const BUILD_CACHE_DIR = path.join(process.cwd(), ".next", "cache");
+const BUILD_CACHE_FILE = path.join(
+  BUILD_CACHE_DIR,
+  "rick-morty-characters.json"
+);
 
 let allCharactersPromise: Promise<Map<number, RickMortyCharacter>> | null = null;
 
@@ -65,14 +72,9 @@ export async function getCharacterById(
 }
 
 export async function getAllCharacterIds() {
-  const firstPage = await getCharacters(
-    {},
-    { next: { revalidate: TEN_DAYS } }
-  );
+  const characters = await getAllCharactersMap();
 
-  return Array.from({ length: firstPage.info.count }, (_, index) => ({
-    id: String(index + 1),
-  }));
+  return Array.from(characters.keys()).map((id) => ({ id: String(id) }));
 }
 
 async function getAllCharactersMap() {
@@ -81,6 +83,12 @@ async function getAllCharactersMap() {
 }
 
 async function loadAllCharactersMap() {
+  const cached = await readCharactersCache();
+
+  if (cached) {
+    return cached;
+  }
+
   const characterIds = Array.from(
     { length: CHARACTER_COUNT },
     (_, index) => index + 1
@@ -92,19 +100,61 @@ async function loadAllCharactersMap() {
   const entries = new Map<number, RickMortyCharacter>();
 
   for (const chunk of chunks) {
-    const res = await fetch(`${API_URL}/${chunk.join(",")}`, {
-      next: { revalidate: TEN_DAYS },
-    });
-
-    if (!res.ok) {
-      throw new Error(
-        `No se pudieron cargar los personajes (${res.status}) desde ${API_URL}/${chunk.join(",")}`
-      );
-    }
-
-    const data = (await res.json()) as RickMortyCharacter[];
+    const data = await fetchCharacterBatch(chunk);
     data.forEach((character) => entries.set(character.id, character));
   }
 
+  await writeCharactersCache(entries);
+
   return entries;
+}
+
+async function fetchCharacterBatch(ids: number[]) {
+  const url = `${API_URL}/${ids.join(",")}`;
+  const maxAttempts = 4;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    const res = await fetch(url, {
+      next: { revalidate: TEN_DAYS },
+    });
+
+    if (res.ok) {
+      return (await res.json()) as RickMortyCharacter[];
+    }
+
+    if (res.status === 429 && attempt < maxAttempts) {
+      await wait(1000 * attempt);
+      continue;
+    }
+
+    throw new Error(
+      `No se pudieron cargar los personajes (${res.status}) desde ${url}`
+    );
+  }
+
+  return [];
+}
+
+async function readCharactersCache() {
+  try {
+    const cache = await readFile(BUILD_CACHE_FILE, "utf-8");
+    const characters = JSON.parse(cache) as RickMortyCharacter[];
+
+    return new Map(characters.map((character) => [character.id, character]));
+  } catch {
+    return null;
+  }
+}
+
+async function writeCharactersCache(characters: Map<number, RickMortyCharacter>) {
+  await mkdir(BUILD_CACHE_DIR, { recursive: true });
+  await writeFile(
+    BUILD_CACHE_FILE,
+    JSON.stringify(Array.from(characters.values())),
+    "utf-8"
+  );
+}
+
+function wait(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
