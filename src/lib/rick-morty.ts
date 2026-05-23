@@ -6,6 +6,10 @@ import {
 
 const API_URL = "https://rickandmortyapi.com/api/character";
 export const TEN_DAYS = 60 * 60 * 24 * 10;
+const CHARACTER_COUNT = 826;
+const BATCH_SIZE = 100;
+
+let allCharactersPromise: Promise<Map<number, RickMortyCharacter>> | null = null;
 
 function buildCharacterUrl(filters: RickMortyCharacterFilters = {}) {
   const params = new URLSearchParams();
@@ -40,6 +44,17 @@ export async function getCharacterById(
   id: string,
   init?: RequestInit
 ): Promise<RickMortyCharacter> {
+  if (process.env.NODE_ENV === "production") {
+    const characters = await getAllCharactersMap();
+    const character = characters.get(Number(id));
+
+    if (!character) {
+      throw new Error("Personaje no encontrado");
+    }
+
+    return character;
+  }
+
   const res = await fetch(`${API_URL}/${id}`, init);
 
   if (!res.ok) {
@@ -54,18 +69,42 @@ export async function getAllCharacterIds() {
     {},
     { next: { revalidate: TEN_DAYS } }
   );
-  const pageNumbers = Array.from(
-    { length: firstPage.info.pages - 1 },
-    (_, index) => index + 2
-  );
 
-  const remainingPages = await Promise.all(
-    pageNumbers.map((page) =>
-      getCharacters({ page }, { next: { revalidate: TEN_DAYS } })
-    )
-  );
+  return Array.from({ length: firstPage.info.count }, (_, index) => ({
+    id: String(index + 1),
+  }));
+}
 
-  return [firstPage, ...remainingPages].flatMap((page) =>
-    page.results.map((character) => ({ id: String(character.id) }))
+async function getAllCharactersMap() {
+  allCharactersPromise ??= loadAllCharactersMap();
+  return allCharactersPromise;
+}
+
+async function loadAllCharactersMap() {
+  const characterIds = Array.from(
+    { length: CHARACTER_COUNT },
+    (_, index) => index + 1
   );
+  const chunks = Array.from(
+    { length: Math.ceil(characterIds.length / BATCH_SIZE) },
+    (_, index) => characterIds.slice(index * BATCH_SIZE, (index + 1) * BATCH_SIZE)
+  );
+  const entries = new Map<number, RickMortyCharacter>();
+
+  for (const chunk of chunks) {
+    const res = await fetch(`${API_URL}/${chunk.join(",")}`, {
+      next: { revalidate: TEN_DAYS },
+    });
+
+    if (!res.ok) {
+      throw new Error(
+        `No se pudieron cargar los personajes (${res.status}) desde ${API_URL}/${chunk.join(",")}`
+      );
+    }
+
+    const data = (await res.json()) as RickMortyCharacter[];
+    data.forEach((character) => entries.set(character.id, character));
+  }
+
+  return entries;
 }
